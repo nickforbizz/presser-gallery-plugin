@@ -1,5 +1,5 @@
 <?php
-if ( !defined('WPINC') ) {
+if (!defined('WPINC')) {
     exit('Not allowed to access this file directly');
 }
 
@@ -11,18 +11,54 @@ class Presser_Gallery_Plugin_For_Wp
         add_action('init', array($this, 'registerPostType'));
         add_action('add_meta_boxes', array($this, 'AddMetaBox'));
         add_action('admin_enqueue_scripts', array($this, 'enqueueScripts'));
+        add_action('save_post', array($this, 'savePost'), 10, 2);
     }
 
-    function enqueueScripts($hook) {
+
+    /**
+     * savePost function
+     *
+     * @param  [type] $post_id
+     * @param  [type] $post
+     * @return void
+     */
+    public function savePost($post_id, $post)
+    {
+        if ($post->post_type != 'presser_gallery') return false;
+
+        $presser_imgs = json_encode($this->sanitizeDynamic($_POST['Presser-imgs']));
+        if (empty($presser_imgs))  return false;
+
+        // file_put_contents(__DIR__ . '/log.log', json_encode($presser_imgs));
+        update_post_meta($post_id, 'presser_imgs', $presser_imgs);
+        return true;
+    }
+
+    /**
+     * enqueueScripts function
+     *
+     * @param  [type] $hook
+     * @return void
+     */
+    public function enqueueScripts($hook)
+    {
         if ($hook == 'post-new.php' || $hook == 'post.php') {
             global $post;
             if ($post->post_type == 'presser_gallery') {
                 wp_enqueue_media();
+            }
         }
     }
-    }
-    function AddMetaBox() {
-       
+
+
+    /**
+     * AddMetaBox function
+     *
+     * @return void
+     */
+    public function AddMetaBox()
+    {
+
 
         add_meta_box(
             'Presser_Gallery_Plugin',
@@ -35,16 +71,27 @@ class Presser_Gallery_Plugin_For_Wp
     }
 
 
-    function renderImgMetaBox($post) {
+    /**
+     * renderImgMetaBox function
+     *
+     * @param  [type] $post
+     * @return void
+     */
+    public function renderImgMetaBox($post)
+    {
         ob_start();
-        include_once PRESSER_GALLERY_PLUGIN_FOR_WP_DIR.'/templates/add_images.php';
+        include_once PRESSER_GALLERY_PLUGIN_FOR_WP_DIR . '/templates/add_images.php';
         $output = ob_get_clean();
         echo $output;
     }
 
 
-    // Register Post Type
-    function registerPostType()
+    /**
+     * Register Post Type
+     *
+     * @return void
+     */
+    public function registerPostType()
     {
         $labels = array(
             'name'                  => _('Presser Gallery'),
@@ -77,8 +124,8 @@ class Presser_Gallery_Plugin_For_Wp
             'label'              => 'Presser Gallery',
             'description'        => 'A plugin to display presser images',
             'labels'             => $labels,
-            'supports'           => array( 'title'),
-            'taxonomies'          => array( 'genres' ),
+            'supports'           => array('title'),
+            'taxonomies'          => array('genres'),
             /* A hierarchical CPT is like Pages and can have
             * Parent and child items. A non-hierarchical CPT
             * is like Posts.
@@ -101,9 +148,96 @@ class Presser_Gallery_Plugin_For_Wp
         register_post_type('presser_gallery', $args);
     }
 
-   
+
+
+    /**
+     * sanitize_array function
+     *
+     * @param  [type] $array
+     * @return void
+     */
+    public function sanitize_array($array)
+    {
+        //check if array is not empty
+        if (!empty($array)) {
+            //loop through array
+            foreach ($array as $key => $value) {
+                //check if value is array
+                if (is_array($array)) {
+                    //sanitize array
+                    $array[$key] = is_array($value) ? $this->sanitize_array($value) : $this->sanitizeDynamic($value);
+                } else {
+                    //check if $array is object
+                    if (is_object($array)) {
+                        //sanitize object
+                        $array->$key = $this->sanitizeDynamic($value);
+                    } else {
+                        //sanitize mixed
+                        $array[$key] = $this->sanitizeDynamic($value);
+                    }
+                }
+            }
+        }
+        //return array
+        return $array;
+    }
+
+
+
+
+
+    /**
+     * sanitize_object function
+     *
+     * @param  [type] $object
+     * @return void
+     */
+    public function sanitize_object($object)
+    {
+        //check if object is not empty
+        if (!empty($object)) {
+            //loop through object
+            foreach ($object as $key => $value) {
+                //check if value is array
+                if (is_array($value)) {
+                    //sanitize array
+                    $object->$key = $this->sanitize_array($value);
+                } else {
+                    //sanitize mixed
+                    $object->$key = $this->sanitizeDynamic($value);
+                }
+            }
+        }
+        //return object
+        return $object;
+    }
+
+
+
+
+    /**
+     * sanitizeDynamic function
+     *
+     * @param  [type] $data
+     * @return void
+     */
+    public function sanitizeDynamic($data)
+    {
+        $type = gettype($data);
+        switch ($type) {
+            case 'array':
+                return $this->sanitize_array($data);
+                break;
+            case 'object':
+                return $this->sanitize_object($data);
+                break;
+            default:
+                return sanitize_text_field($data);
+                break;
+        }
+    }
 }
 
-// initi
+// init
 $init = new Presser_Gallery_Plugin_For_Wp();
 $init->init();
