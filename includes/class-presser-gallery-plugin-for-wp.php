@@ -12,6 +12,41 @@ class Presser_Gallery_Plugin_For_Wp
         add_action('add_meta_boxes', array($this, 'AddMetaBox'));
         add_action('admin_enqueue_scripts', array($this, 'enqueueScripts'));
         add_action('save_post', array($this, 'savePost'), 10, 2);
+        add_shortcode('presser_gallery', array($this, 'shortCode'));
+        
+        // enqueue frontend scripts
+        add_action('wp_enqueue_scripts', array($this, 'enqueueScriptsFrontend'));
+    }
+
+    public function enqueueScriptsFrontend() {
+        wp_enqueue_style('presser_gallery-lightgallery', PRESSER_GALLERY_PLUGIN_FOR_WP_URL . '/assets/css/lightgallery.min.css', array(), PRESSER_GALLERY_PLUGIN_FOR_WP_VERSION);
+        wp_enqueue_script('presser_gallery-lightgallery', PRESSER_GALLERY_PLUGIN_FOR_WP_URL . '/assets/js/lightgallery.min.js', array('jquery'), PRESSER_GALLERY_PLUGIN_FOR_WP_VERSION, true);
+        // add presser_gallery core js
+        wp_enqueue_script('presser_gallery-core', PRESSER_GALLERY_PLUGIN_FOR_WP_URL . '/assets/js/presser_gallery_core.js', array('jquery'), PRESSER_GALLERY_PLUGIN_FOR_WP_VERSION, true);
+    }
+
+    /**
+     * shortCode function
+     *
+     * @param  [type] $atts
+     * @return void
+     */
+    public function shortCode($atts) {
+        // Get shortcode attributes
+        $shortCodeAtt = shortcode_atts([
+            "title" => "Presser Gallery",
+            "id" => 200
+        ], $atts, 'presser_gallery');
+
+        $presser_imgs = json_decode(get_post_meta($shortCodeAtt['id'], 'presser_imgs', true));
+        if(empty($presser_imgs)) return false;
+        $title = $shortCodeAtt['title'];
+
+        ob_start();
+        include_once PRESSER_GALLERY_PLUGIN_FOR_WP_DIR . '/templates/shortcode-frontend.php';
+        $output = ob_get_clean();
+        
+        return $output;
     }
 
 
@@ -61,14 +96,39 @@ class Presser_Gallery_Plugin_For_Wp
 
 
         add_meta_box(
-            'Presser_Gallery_Plugin',
+            'Presser_Gallery_img_meta_box',
             'Images',
             array($this, 'renderImgMetaBox'),
             'presser_gallery',
             'normal',
             'high'
         );
+
+        // add short code
+        add_meta_box(
+            'Presser_Gallery_shortcode_meta_box',
+            'Shortcode',
+            array($this, 'renderShortcodeMetaBox'),
+            'presser_gallery',
+            'side'
+        );
     }
+
+
+    /**
+     * renderShortcodeMetaBox function
+     *
+     * @param  [type] $post
+     * @return void
+     */
+    public function renderShortcodeMetaBox($post)
+    {
+        ob_start();
+        include_once PRESSER_GALLERY_PLUGIN_FOR_WP_DIR . '/templates/shortcode.php';
+        $output = ob_get_clean();
+        echo $output;
+    }
+
 
 
     /**

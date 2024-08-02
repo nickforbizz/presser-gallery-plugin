@@ -1,5 +1,4 @@
 <?php
-
 if (!defined('WPINC')) {
     exit('Not allowed to access this file directly');
 }
